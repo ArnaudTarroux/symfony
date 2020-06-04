@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Serializer\Normalizer;
 
+use Composer\Semver\Comparator;
 use Symfony\Component\Serializer\Exception\CircularReferenceException;
 use Symfony\Component\Serializer\Exception\InvalidArgumentException;
 use Symfony\Component\Serializer\Exception\LogicException;
@@ -249,7 +250,8 @@ abstract class AbstractNormalizer implements NormalizerInterface, DenormalizerIn
 
             if (
                 (false === $groups || array_intersect($attributeMetadata->getGroups(), $groups)) &&
-                $this->isAllowedAttribute($classOrObject, $name, null, $context)
+                $this->isAllowedAttribute($classOrObject, $name, null, $context) &&
+                $this->attributeAllowedWithVersion($context, $attributeMetadata->getSince(), $attributeMetadata->getUntil())
             ) {
                 $allowedAttributes[] = $attributesAsString ? $name : $attributeMetadata;
             }
@@ -435,5 +437,22 @@ abstract class AbstractNormalizer implements NormalizerInterface, DenormalizerIn
         }
 
         return $parentContext;
+    }
+
+    protected function attributeAllowedWithVersion(array $context, ?string $sinceVersion, ?string $untilVersion): bool
+    {
+        if (!isset($context['version'])) {
+            return true;
+        }
+
+        if (null !== $sinceVersion && Comparator::lessThan($context['version'], $sinceVersion)) {
+            return false;
+        }
+
+        if (null !== $untilVersion && Comparator::greaterThanOrEqualTo($context['version'], $untilVersion)) {
+            return false;
+        }
+
+        return true;
     }
 }
